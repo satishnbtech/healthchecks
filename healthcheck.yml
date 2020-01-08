@@ -1,0 +1,256 @@
+---
+- hosts: all 
+  become: yes
+  vars:
+  - output_file_location: /etc/ansible/
+  - html_lines: []
+
+  tasks:
+  - name: "linux->hostname | Get hostname  of the remote server"
+    block:
+
+    - name: "linux->hostname | Update HTML line - If hostname found"
+      set_fact:
+        html_lines: "{{ html_lines }} + ['<td align=\"center\" bgcolor=\"white\" title=\"Hostname\"> <b>{{ ansible_hostname }}</b></td>' ]"
+
+
+    rescue:
+    - name: "linux->Load | Update HTML line - if fails to find VM Version of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\" title=\"Hostname\"> <b>fail to to get hostname</b></td>' ]"
+
+  - name: "linux->ostype | Get ostype  of the remote server"
+    block:
+    - name: "linux->os tupe | Update HTML line - If os type found"
+      set_fact:
+        html_lines: "{{ html_lines }} + ['<td align=\"center\" bgcolor=\"\"white title=\"ostype\"> <b>{{ ansible_system }}</b></td>' ]"
+
+
+    rescue:
+    - name: "linux->ostype | Update HTML line - if fails to find ostype of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\" title=\"ostype\"> <b>fail to to get ostype</b></td>' ]"
+
+  
+  - name: "linux->kernal version | Get kernal version  of the remote server"
+    block:
+
+    - name: "linux->Kernal Version | Update HTML line - If Kernal Version found"
+      set_fact:
+        html_lines: "{{ html_lines }} + ['<td align=\"center\" bgcolor=\"white\" title=\"Kernel Version\"> <b>{{ ansible_kernel }}</b></td>' ]"
+
+
+    rescue:
+    - name: "linux->Kernal Version | Update HTML line - if fails to find Kernal version of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\" title=\"Kernal Version\"> <b>fail to to get Kernal Version</b></td>' ]"
+
+
+  - name: "linux->OS Distribution | Get OS Distribution   of the remote server"
+    block:
+
+    - name: "linux->OS Distribution  | Update HTML line - If OS Distribution  found"
+      set_fact:
+        html_lines: "{{ html_lines }} + ['<td align=\"center\" bgcolor=\"white\" title=\"OS Distribution\"> <b>{{ ansible_distribution }}</b></td>' ]"
+
+
+    rescue:
+    - name: "linux->OS Distribution|Update HTML line - if fails to find OS Distribution of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\" title=\"OS Distribution\"> <b>fail to to get OS Distribution</b></td>' ]"
+
+
+  - name: "linux->OS Version | Get OS Version of the remote server"
+    block:
+
+    - name: "linux->OS Version  | Update HTML line - If OS Version  found"
+      set_fact:
+        html_lines: "{{ html_lines }} + ['<td align=\"center\" bgcolor=\"white\" title=\"OS Version\"> <b>{{ ansible_distribution_version }}</b></td>' ]"
+
+
+    rescue:
+    - name: "linux->OS Version|Update HTML line - if fails to find OS Version of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\" title=\"OS Version\"> <b>fail to to getOS Version</b></td>' ]"
+
+  - name: "linux->CPU | Get CPU Usage % of the remote server"
+    block:
+    - name: "linux->CPU | Get CPU idle time"
+      shell: top -b -n 1 | grep "Cpu(s)" | awk -F'id' '{print $1}' | awk -F'ni' '{print $2}' | awk -F'[,.]' '{print $2}' | awk '{$1=$1;print}'
+      register: cpu_idle
+
+    - name: "linux->CPU | Update HTML line - If Load Average is NORMAL"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"green\"><b> SUCCESS </b></font><br>{{ 100 - ( cpu_idle.stdout | int ) }}% </td>' ]"
+
+    rescue:
+
+    - name: "linux->CPU | Update HTML line - if fails to find Load Average of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<tr><td align=\"center\"><font color=\"red\"><b> FAILED </b></font> <br>Failed to get CPU Usage  </td>' ]"
+
+  - name: "linux->DiskIO | Get Disk IO of the remote server"
+    block:
+    - name: "linux->DiskIO | Get Disk IO details"
+      shell: "iostat -xtc| sed -n -e '/Device/,$p'| grep -v 'sda' | grep -v 'loop0' | sed -n '1!p' | awk '{print $16}'"
+      register: diskio_sdb
+
+
+    - name: "linux->DiskIO | Get Disk IO details"
+      shell: "iostat -xtc| sed -n -e '/Device/,$p'| grep -v 'sdb' | grep -v 'loop0' | sed -n '1!p' | awk '{print $16}'"
+      register: diskio_sda
+
+
+    - name: "linux->DiskIO | Update HTML line - If DiscIO exicuted"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\"><font color=\"green\"><b> SUCCESS </b></font> <br> <b>sda</b> -{{ diskio_sda.stdout }}% <br> <b>sdb</b> -{{ diskio_sdb.stdout }}%</b></td>' ]"
+    rescue:
+    - name: "linux->DiskIO | Update HTML line - if fails to execute DiskIO  of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\"><font color=\"Red\"><b> FAILED </b></font> <br>Failed to get DiskIO Utilisation</td>' ]"
+
+  - name: "linux->fs | Get File Systems of the remote server"
+    block:
+    - name: "linux->fs | Get File Systems %"
+      shell: "df -h | sed -n '1!p' | awk -F '%' '{print $1}' | awk '{print $5}'| sort -nr"
+      register: fsout
+
+    - name: "linux->file | Update HTML line - If file Usage exicuted"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"green\"><b> SUCCESS </b></font><br>{{ fsout.stdout_lines[0] }}% </td>']"
+    rescue:
+    - name: "linux->fs | Update HTML line - if fails to execute file system utilisation of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"red\"><b> FAILED </b></font> Failed to get file system utilisation</td>' ]"
+
+  - name: "linux->Load | Get Load average of the remote server"
+    block:
+    - name: "linux->Load | Get File System available space"
+      shell: "uptime | sed -n -e 's/^.*average: //p' | awk -F'.' '{print $1}'"
+      register: load_avail
+
+    - name: "linux->Load | Update HTML line - If Load Average is NORMAL"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\" bgcolor=\"white\"><font color=\"green\"><b> NORMAL </b></font> <br> <b>{{ load_avail.stdout }}</b></td>' ]"
+      when: load_avail.stdout|int <= 10
+
+    - name: "linux->Load | Update HTML line - If Load Average is CRITIAL"
+      set_fact:
+        html_lines: "{{ html_lines }} +[ '<td align=\"center\" bgcolor=\"white\"><font color=\"red\"><b> CRITICAL </b></font> title=\"load_average\" <b>{{ load_avail.stdout }}</b></td>' ]" 
+      when: load_avail.stdout|int >= 10
+    rescue:
+    - name: "linux->Load | Update HTML line - if fails to find Load Average of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td  align=\"center\" bgcolor=\"white\"><font color=\"red\"><b> FAILED </b></font> Failed to get Load_Avg. </td>' ]"
+
+  - name: "linux->Memory | Get Memory Utilisation of the remote server"
+    block:
+    - name: "linux->Memory | Update HTML line - If Memory Space is available"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"green\"><b> SUCCESS </b></font><br> {{ 100 * ansible_memory_mb.real.free / ansible_memory_mb.real.total }}% </td>' ]"
+
+    rescue:
+    - name: "linux->Memory | Update HTML line - if fails to find Memory Space of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"red\"><b> FAILED </b></font><br> Failed to get Memory_Utilisation </td>' ]"
+
+  - name: "linux->SWAP | Get Swap Memory of the remote server"
+    block:
+    - name: "linux->SWAP | Update HTML line - with SWAP memory"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"green\"><b> SUCCESS </b></font> <br> {{ ansible_memory_mb.swap.used  }}% </td>' ]"
+
+    rescue:
+    - name: "linux->SWAP | Update HTML line - if fails to find SWAP Memory Utilisation of the remote server"
+      set_fact:
+        html_lines: "{{ html_lines }} + [ '<td align=\"center\"><font color=\"red\"><b> FAILED </b></font><br> Failed to get SWAP Memory_Utilisation </td>' ]"
+
+
+  - name: path file for html output file
+    set_fact:
+      html_file_output: "{{ output_file_location }}/{{ ansible_hostname }}.html"
+    delegate_to: localhost
+  - name: remove old html file if its already exists
+    file:
+      path: "{{ html_file_output }}"
+      state: absent
+    delegate_to: localhost
+
+  - name: remove old html file if its already exists
+    file:
+      path: "/tmp/report.html"
+      state: absent
+    delegate_to: localhost
+
+  - name: added html lines
+    lineinfile:
+      path: "/tmp/report.html"
+      line: "<table border=\"1\" style=\"border-collapse: collapse\"><tr align=\"center\" bgcolor=\"#6666ff\"><th>Host Names</th><th>OS Type</th><th>Kernal Version</th><th>OS Distribution</th><th>OS Version </th><th>CPU Utilization </th><th> Disk IO Utilization</th><th> File System Utilization</th><th>Load Average</th><th>Memory Utilization</th><th>Swap Usage<th></tr>"
+      create: yes
+    delegate_to: localhost
+    run_once: true
+
+  - name: added one by one html lines based on checks to output file
+    lineinfile:
+      path: "{{ html_file_output }}"
+      line: "{{ item }}"
+      create: yes
+      state: present
+    with_items: "{{ html_lines }}"
+    delegate_to: localhost
+
+     
+
+  - name:  get all servers  html formated files
+    find:
+      paths: "{{ output_file_location }}"
+      patterns: "*.html"
+    register: html_file
+    delegate_to: localhost
+  
+  - name:  Include Tasks for html files
+    include_tasks: "{{ output_file_location }}/merge.yml"
+    with_items: "{{ html_file.files }}"
+    run_once: true
+
+
+  - name: Write HTML Footer"
+    lineinfile:
+      path: "/tmp/report.html"
+      line: "</table></body></html>"
+      create: yes
+      state: present
+    delegate_to: localhost
+    run_once: true
+
+
+  - name: setting variable for file output content
+    set_fact:
+      html_output: "/tmp/report.html"
+    delegate_to: localhost
+    run_once: true
+
+  - name: send mail using module
+    mail:
+      host: smtp.gmail.com
+      port: 587
+
+      username: chidwilas22@gmail.com
+      password: wkagdqxejjgozwlf
+#      username: satish.nimmakayalu@gmail.com
+#      password: ugkoeesyttlfybxx
+      to: nimmakayalu@dxc.com
+      subtype: "html"
+      subject: Ansible report for Server healthchecks {{ ansible_date_time.date }}
+      body: "{{ lookup('file', html_output) }}"
+    delegate_to: localhost
+    run_once: true
+  
+
+
+
+
+
+
+
+
