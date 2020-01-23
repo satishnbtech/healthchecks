@@ -2,14 +2,14 @@
 - name: merge the files
   set_fact:
     merge_file: "{{ lookup('file', item.path) }}"
-  delegate_to: 10.0.2.19
+  delegate_to: localhost
 - name: output file
   lineinfile:
     path: "/tmp/report.html"
     line: "{{ merge_file }} </tr><tr>"
     create: yes
     state: present
-  delegate_to: 10.0.2.19 
+  delegate_to: localhost 
   
   #- name: "Insert Line Separator" 
   #    lineinfile:
